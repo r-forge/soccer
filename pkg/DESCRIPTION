@@ -1,0 +1,13 @@
+Package: SportsAnalytics
+Type: Package
+Title: Sports Analytics
+Version: 0.1
+Date: 2011-04-27
+Depends: methods, stats, ggplot2
+Suggests: archetypes
+Author: Manuel J. A. Eugster <manuel.eugster@stat.uni-muenchen.de>
+Maintainer: Manuel J. A. Eugster <manuel.eugster@stat.uni-muenchen.de>
+Description: A framework for modern statistical methodology in sports
+    analysis.
+License: GPL (>= 2)
+Revision: 1
