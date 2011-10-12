@@ -5,7 +5,8 @@
   NBA season 2009/2010 player statistics
 }
 \description{
-  NBA season 2009/2010 player statistics provided by \url{dougstat.com}.
+  NBA season 2009/2010 player statistics provided by \url{dougstat.com}
+  (via \code{\link{fetch_NBAPlayerStatistics}}).
 }
 \usage{data(NBAPlayerStatistics0910)}
 \format{
@@ -43,6 +44,9 @@
   Doug's NBA & MLB Statistics Home Page, \url{http://dougstats.com}.
 }
 \examples{
-data(NBAPlayerStatistics0910)
+  data(NBAPlayerStatistics0910)
+}
+\seealso{
+  \code{\link{fetch_NBAPlayerStatistics}}.
 }
 \keyword{datasets}
