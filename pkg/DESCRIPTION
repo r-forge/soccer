@@ -1,8 +1,8 @@
 Package: SportsAnalytics
 Type: Package
 Title: Infrastructure for Sports Analytics
-Version: 0.1
-Date: 2011-12-06
+Version: 0.1-1
+Date: 2011-10-18
 Depends:
     methods,
     stats
@@ -22,3 +22,4 @@ URL: http://soccer.r-forge.r-project.org/
 License: GPL (>= 2)
 Collate:
     'fetch_NBAPlayerStatistics.R'
+    'concentration.R'

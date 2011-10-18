@@ -1,0 +1,35 @@
+ 
+citEntry(entry = "techreport",
+         title = "Archetypal Athletes",
+         author = personList(as.person("Manuel J. A. Eugster")),
+         institution = "Institut fuer Statistik, Ludwig-Maximilians-Universitaet Muenchen, Germany",
+         year = "2011",
+         type = "Technical Report",
+         number = "113",
+         arxiv = "http://arxiv.org/abs/1110.1972",
+         url = "http://epub.ub.uni-muenchen.de/12336/",
+
+         header = "To cite archetypal athletes in publications use:",
+
+         textVersion = paste("Manuel J. A. Eugster.",
+                             "Archetypal Athletes.",
+                             "Technical Report 113, Institut fuer Statistik, Ludwig-Maximilians-Universitaet Muenchen, Germany.",
+                             "http://arxiv.org/abs/1110.1972")
+)
+
+
+citEntry(entry = "Manual",
+         title = "SportsAnalytics: Infrastructure for Sports Analytics",
+         author = personList(as.person("Manuel J. A. Eugster")),
+         year = "2011",
+         note = "R package version 0.1",
+         url = "http://soccer.r-forge.r-project.org/",
+
+         header = "To cite package SportsAnalytics in publications use:",
+
+         textVersion = paste("Manuel J. A. Eugster.",
+	                     "SportsAnalytics: Infrastructure for Sports Analytics.",
+                             "R package version 0.1",
+                             "http://soccer.r-forge.r-project.org/")
+)
+
