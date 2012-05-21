@@ -66,13 +66,51 @@ game_result <- function(site) {
 
 
 game_details <- function(site) {
+  details <- getNodeSet(site, "//table[@summary='Vereinsliste']")
+  details <- details[[1]]["tr"]
 
+  teams <- unname(sapply(details[c(1, 3)], xmlValue))
+  teams <- str_trim(teams)
+
+  ret <- list(teams[1], game_details_team(details[[2]]),
+              teams[2], game_details_team(details[[4]]))
+
+  ret
 }
 
 
-game <- function() {
-  url <- "http://www.kicker.de/news/fussball/bundesliga/spieltag/1-bundesliga/2011-12/34/1143587/taktische-austellung_fc-augsburg-91_hamburger-sv-12.html"
+game_details_team <- function(team, details) {
+  aufs <- getNodeSet(details, ".//div[@class='aufstellung_team']")[[1]]
 
+  ## Einwechslungen:
+  wechsel <- getNodeSet(aufs,
+                        ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_einwechslungenHeim']")[[1]]
+  wechsel <- wechsel[["div"]][-1]
+  nwechsel <- length(wechsel) / 5
+  for ( i in seq(length(wechsel) / 5) ) {
+
+  }
+  
+  
+  
+  ## Reservebank:
+  bank <- getNodeSet(aufs,
+                     ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_reservebankHeim']")[[1]]
+  bank <- sapply(bank[["div"]]["a"], xmlValue)
+  bank <- unname(bank)
+  
+  
+  ## Trainer:
+  trainer <- getNodeSet(aufs,
+                        ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_trainerHeim']")[[1]]
+  trainer <- xmlValue(trainer[["div"]][["a"]])
+  
+}
+
+
+
+
+fetch_game <- function(url) {
   raw <- readLines(url)
   raw <- str_replace_all(raw, "&nbsp;", " ")
 
@@ -80,15 +118,54 @@ game <- function() {
 
   ret <- list()
   ret$positions <- game_positions(site)
-  ret$info <- game_result(site)
-
+  ret$result <- game_result(site)
+  ret$details <- game_details(site)
+  
   free(site)
 
   ret
 }
 
 
-g <- game()
-plot(top ~ left, data = g$positions, col = c(rep(1, 11), rep(2, 11)), pch = 19, cex = 3)
+fetch_matchday_games_urls <- function(season, day) {
+  url <- "http://www.kicker.de/news/fussball/bundesliga/spieltag/1-bundesliga/%s/%s/0/spieltag.html"
+  url <- sprintf(url, season, day)
+
+  raw <- readLines(url)
+  raw <- str_replace_all(raw, "&nbsp;", " ")
+
+  site <- htmlTreeParse(raw, useInternalNodes = TRUE)
+
+  games <- getNodeSet(site, "//table[@summary='Begegnungen']/tr[starts-with(@class, 'fest')]",
+                      fun = function(x) {
+                        unname(xmlAttrs(x[[13]][["a"]])["href"])
+                      })
+  
+  free(site)
+
+  games <- unlist(games)
+  games <- str_replace(games, "spielanalyse", "taktische-austellung")
+  games <- sprintf("http://www.kicker.de%s", games)
+
+  games
+}
 
 
+fetch_matchday_games <- function(season, day) {
+  urls <- fetch_matchday_games_urls(season, day)
+  games <- lapply(urls, fetch_game)
+  games
+}
+
+
+fetch_season_games <- function(season) {
+  lapply(1:34, function(d) fetch_matchday_games(season, d))
+}
+
+
+fetch_seasons <- function() {
+
+}
+
+
+#s <- fetch_season_games("2011-12")
