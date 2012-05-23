@@ -5,6 +5,9 @@ library("stringr")
 options(stringsAsFactors = FALSE)
 
 
+
+### Fetch data: ######################################################
+
 player_position <- function(x) {
   name <- xmlValue(x[["a"]])
 
@@ -17,8 +20,11 @@ player_position <- function(x) {
   pos_value <- sapply(pos_value, str_replace, "px", "")
   pos_value <- as.numeric(pos_value)
   names(pos_value) <- sapply(pos, "[[", 1)
+  names(pos_value) <- paste("Pos",
+                            toupper(substring(names(pos_value), 1, 1)),
+                            substring(names(pos_value), 2), sep = "")
 
-  cbind(name = name, as.data.frame(t(pos_value)))
+  cbind(Player = name, as.data.frame(t(pos_value)))
 }
 
 
@@ -72,50 +78,67 @@ game_details <- function(site) {
   teams <- unname(sapply(details[c(1, 3)], xmlValue))
   teams <- str_trim(teams)
 
-  ret <- list(game_details_team(teams[1], details[[2]]),
-              game_details_team(teams[2], details[[4]]))
+  details <- list(game_details_team(teams[1], details[[2]], "Heim"),
+                  game_details_team(teams[2], details[[4]], "Ausw"))
+
+  ret <- list()
+  ret$substitutes <- rbind(details[[1]]$bank, details[[2]]$bank)
+  ret$exchanges <-  rbind(details[[1]]$wechsel, details[[2]]$wechsel)
+  ret$trainer <- rbind(details[[1]]$trainer, details[[2]]$trainer)
 
   ret
 }
 
 
-game_details_team <- function(team, details) {
+game_details_team <- function(team, details, which) {
   aufs <- getNodeSet(details, ".//div[@class='aufstellung_team']")[[1]]
 
   ## Aufstellung:
-  aufstellung <- getNodeSet(aufs, ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_ausstellungHeim']")[[1]]
+  p <- sprintf(".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_ausstellung%s']", which)
+  aufstellung <- getNodeSet(aufs, p)[[1]]
   aufstellung <- getNodeSet(aufstellung, ".//div[@class='spielerdiv']",
                             fun = function(x) {
                               xmlValue(x[["a"]])
                             })
+  aufstellung <- data.frame(Team = team, Player = aufstellung)
 
   ## Einwechslungen:
-  wechsel <- getNodeSet(aufs,
-                        ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_einwechslungenHeim']")[[1]]
-  wechsel <- wechsel[["div"]][-1]
-  wechsel <- split(wechsel, gl(length(wechsel) / 5, 5))
-  wechsel <- lapply(wechsel,
-                    function(x) {
-                      c(min = str_sub(str_trim(xmlValue(x[[2]])), end = -2),
-                        pin = xmlValue(x[[3]]),
-                        pout = xmlValue(x[[5]]))
-                      })
-  
+  p <- sprintf(".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_einwechslungen%s']", which)
+  wechsel <- getNodeSet(aufs, p)
+  if ( length(wechsel) == 0 ) {
+    wechsel <- data.frame(Team = character(0),
+                          Minute = character(0),
+                          PlayerOn = character(0),
+                          PlayerOff = character(0))
+  } else {
+    wechsel <- wechsel[[1]][["div"]][-1]
+    wechsel <- split(wechsel, cumsum(names(wechsel) == "br"))
+    wechsel <- t(sapply(wechsel,
+                        function(x) {
+                          y <- c(str_trim(xmlValue(x[[2]])),
+                                 sapply(x[names(x) == "a"], xmlValue))
+                          names(y) <- c("Minute", "PlayerOn", "PlayerOff")
+                          y
+                        }))
+    wechsel <- data.frame(Team = team, wechsel)
+  }
+
   ## Reservebank:
-  bank <- getNodeSet(aufs,
-                     ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_reservebankHeim']")[[1]]
+  p <- sprintf(".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_reservebank%s']", which)
+  bank <- getNodeSet(aufs, p)[[1]]
   bank <- sapply(bank[["div"]]["a"], xmlValue)
   bank <- unname(bank)
-  
-  
-  ## Trainer:
-  trainer <- getNodeSet(aufs,
-                        ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_trainerHeim']")[[1]]
-  trainer <- xmlValue(trainer[["div"]][["a"]])
+  bank <- data.frame(Team = team,
+                     Player = c(bank, wechsel$PlayerOn))
 
-  
-  list(aufstellung = unlist(aufstellung),
-       wechsel = wechsel,
+  ## Trainer:
+  p <- sprintf(".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_trainer%s']", which)
+  trainer <- getNodeSet(aufs, p)[[1]]
+  trainer <- xmlValue(trainer[["div"]][["a"]])
+  trainer <- data.frame(Team = team, Trainer = trainer)
+
+
+  list(wechsel = wechsel,
        bank = bank,
        trainer = trainer)
 }
@@ -123,17 +146,28 @@ game_details_team <- function(team, details) {
 
 
 fetch_game <- function(url) {
-  raw <- readLines(url)
+  raw <- readLines(url, encoding = "ISO-8859-1")
   raw <- str_replace_all(raw, "&nbsp;", " ")
 
   site <- htmlTreeParse(raw, useInternalNodes = TRUE)
 
-  ret <- list()
-  ret$positions <- game_positions(site)
-  ret$result <- game_result(site)
-  ret$details <- game_details(site)
-  
+  game <- list()
+  game$positions <- game_positions(site)
+  game$result <- game_result(site)
+  game$details <- game_details(site)
+
   free(site)
+
+  date <- data.frame(League = game$result$League,
+                     Season = game$result$Season,
+                     Round = game$result$Round)
+
+  ret <- list()
+  ret$match <- game$result
+  ret$lineup <- cbind(date, game$positions)
+  ret$substitutes <- cbind(date, game$details$substitutes)
+  ret$exchanges <- cbind(date, game$details$exchanges)
+  ret$trainer <- cbind(date, game$details$trainer)
 
   ret
 }
@@ -152,7 +186,7 @@ fetch_matchday_games_urls <- function(season, day) {
                       fun = function(x) {
                         unname(xmlAttrs(x[[13]][["a"]])["href"])
                       })
-  
+
   free(site)
 
   games <- unlist(games)
@@ -163,22 +197,65 @@ fetch_matchday_games_urls <- function(season, day) {
 }
 
 
+merge_parts <- function(x) {
+  ret <- list()
+
+  ret$match <- do.call(rbind, lapply(x, "[[", "match"))
+  ret$lineup <- do.call(rbind, lapply(x, "[[", "lineup"))
+  ret$substitutes <- do.call(rbind, lapply(x, "[[", "substitutes"))
+  ret$exchanges <- do.call(rbind, lapply(x, "[[", "exchanges"))
+  ret$trainer <- do.call(rbind, lapply(x, "[[", "trainer"))
+
+  ret
+}
+
+
 fetch_matchday_games <- function(season, day) {
   urls <- fetch_matchday_games_urls(season, day)
   games <- lapply(urls, fetch_game)
-  games
+  merge_parts(games)
 }
 
 
 fetch_season_games <- function(season) {
-  lapply(1:34, function(d) fetch_matchday_games(season, d))
+  games <- lapply(1:34, function(d) fetch_matchday_games(season, d))
+  games <- merge_parts(games)
+
+  saveRDS(games, file = sprintf("games-%s.Rds", season))
+
+  games
 }
 
 
-fetch_seasons <- function() {
-
+fetch_seasons <- function(seasons = sprintf("20%02d-%02d", 1:11, 2:12)) {
+  games <- lapply(seasons, fetch_season_games)
+  merge_parts(games)
 }
 
 
-m <- fetch_game(url)
-#s <- fetch_season_games("2011-12")
+trace(fetch_matchday_games, quote(cat(season, day, "\n")), at = 1)
+sgames <- fetch_seasons()
+untrace(fetch_matchday_games)
+
+
+saveRDS(sgames, file = "sgames.Rds")
+
+
+
+
+### Clean data: ######################################################
+
+clean_player_name <- function(x) {
+  str_trim(str_replace(x, "\\(.*\\)", ""))
+}
+
+
+
+
+
+### Save data: #######################################################
+
+
+
+
+
