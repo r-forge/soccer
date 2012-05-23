@@ -72,8 +72,8 @@ game_details <- function(site) {
   teams <- unname(sapply(details[c(1, 3)], xmlValue))
   teams <- str_trim(teams)
 
-  ret <- list(teams[1], game_details_team(details[[2]]),
-              teams[2], game_details_team(details[[4]]))
+  ret <- list(game_details_team(teams[1], details[[2]]),
+              game_details_team(teams[2], details[[4]]))
 
   ret
 }
@@ -82,16 +82,24 @@ game_details <- function(site) {
 game_details_team <- function(team, details) {
   aufs <- getNodeSet(details, ".//div[@class='aufstellung_team']")[[1]]
 
+  ## Aufstellung:
+  aufstellung <- getNodeSet(aufs, ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_ausstellungHeim']")[[1]]
+  aufstellung <- getNodeSet(aufstellung, ".//div[@class='spielerdiv']",
+                            fun = function(x) {
+                              xmlValue(x[["a"]])
+                            })
+
   ## Einwechslungen:
   wechsel <- getNodeSet(aufs,
                         ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_einwechslungenHeim']")[[1]]
   wechsel <- wechsel[["div"]][-1]
-  nwechsel <- length(wechsel) / 5
-  for ( i in seq(length(wechsel) / 5) ) {
-
-  }
-  
-  
+  wechsel <- split(wechsel, gl(length(wechsel) / 5, 5))
+  wechsel <- lapply(wechsel,
+                    function(x) {
+                      c(min = str_sub(str_trim(xmlValue(x[[2]])), end = -2),
+                        pin = xmlValue(x[[3]]),
+                        pout = xmlValue(x[[5]]))
+                      })
   
   ## Reservebank:
   bank <- getNodeSet(aufs,
@@ -104,9 +112,13 @@ game_details_team <- function(team, details) {
   trainer <- getNodeSet(aufs,
                         ".//div[@id='ctl00_PlaceHolderHalf_aufstellunghalf_trainerHeim']")[[1]]
   trainer <- xmlValue(trainer[["div"]][["a"]])
-  
-}
 
+  
+  list(aufstellung = unlist(aufstellung),
+       wechsel = wechsel,
+       bank = bank,
+       trainer = trainer)
+}
 
 
 
@@ -168,4 +180,5 @@ fetch_seasons <- function() {
 }
 
 
+m <- fetch_game(url)
 #s <- fetch_season_games("2011-12")
