@@ -156,11 +156,16 @@ fetch_game <- function(url) {
   game$result <- game_result(site)
   game$details <- game_details(site)
 
+
   free(site)
 
   date <- data.frame(League = game$result$League,
                      Season = game$result$Season,
                      Round = game$result$Round)
+
+  game$positions <- cbind(Team = c(rep(game$result$TeamHome, 11),
+                                  rep(game$result$TeamGuest, 11)),
+                         game$positions)
 
   ret <- list()
   ret$match <- game$result
@@ -184,7 +189,12 @@ fetch_matchday_games_urls <- function(season, day) {
 
   games <- getNodeSet(site, "//table[@summary='Begegnungen']/tr[starts-with(@class, 'fest')]",
                       fun = function(x) {
-                        unname(xmlAttrs(x[[13]][["a"]])["href"])
+                        if ( !is.null(x[[13]][["a"]]) ) {
+                          unname(xmlAttrs(x[[13]][["a"]])["href"])
+                        }
+                        else {
+                          NULL
+                        }
                       })
 
   free(site)
@@ -233,29 +243,131 @@ fetch_seasons <- function(seasons = sprintf("20%02d-%02d", 1:11, 2:12)) {
 }
 
 
-trace(fetch_matchday_games, quote(cat(season, day, "\n")), at = 1)
-sgames <- fetch_seasons()
-untrace(fetch_matchday_games)
+#trace(fetch_matchday_games, quote(cat(season, day, "\n")), at = 1)
+#sgames <- fetch_seasons()
+#untrace(fetch_matchday_games)
 
-
-saveRDS(sgames, file = "sgames.Rds")
-
+#saveRDS(sgames, file = "sgames.Rds")
+sgames <- readRDS("sgames.Rds")
 
 
 
 ### Clean data: ######################################################
 
-clean_player_name <- function(x) {
-  str_trim(str_replace(x, "\\(.*\\)", ""))
+clean_player <- function(x) {
+  y <- sapply(x, function(y) str_trim(str_replace(y, "\\(.*\\)", "")))
+  factor(unname(y))
+}
+
+clean_league <- function(x) {
+  factor(rep("Bundesliga", length(x)))
+}
+
+clean_season <- function(x) {
+  y <- strsplit(x, "/")
+  y2 <- sprintf("20%s", sapply(y, "[[", 2))
+  ordered(sprintf("%s-%s", sapply(y, "[[", 1), y2))
+}
+
+clean_round <- function(x) {
+  as.numeric(x)
+}
+
+clean_team <- function(x) {
+  factor(x)
+}
+
+clean_goals <- function(x) {
+  as.numeric(x)
+}
+
+clean_trainer <- function(x) {
+  factor(x)
+}
+
+clean_posleft <- function(x) {
+  ## Field width: 578
+  ## Image width: 44
+
+  (x + (44 / 2)) / 578
+}
+
+clean_postop <- function(x) {
+  ## Field height: 1050
+  ## Image height: 75
+
+  midline <- 1050 / 2
+
+  x[x < midline] <- (x[x < midline] + (75 / 2)) / midline
+  x[x > midline] <- (1050 - (x[x > midline] + (75 / 2))) / midline
+
+  x
 }
 
 
+
+sgames$match <- within(sgames$match, {
+  League <- clean_league(League)
+  Season <- clean_season(Season)
+  Round <- clean_round(Round)
+  TeamHome <- clean_team(TeamHome)
+  TeamGuest <- clean_team(TeamGuest)
+  GoalsHome1 <- clean_goals(GoalsHome1)
+  GoalsHome2 <- clean_goals(GoalsHome2)
+  GoalsGuest1 <- clean_goals(GoalsGuest1)
+  GoalsGuest2 <- clean_goals(GoalsGuest2)
+})
+
+
+sgames$lineup <- within(sgames$lineup, {
+  League <- clean_league(League)
+  Season <- clean_season(Season)
+  Round <- clean_round(Round)
+  Team <- clean_team(Team)
+  Player <- clean_player(Player)
+  PosX <- clean_posleft(PosLeft)
+  PosY <- clean_postop(PosTop)
+})
+
+
+sgames$substitutes <- within(sgames$substitutes, {
+  League <- clean_league(League)
+  Season <- clean_season(Season)
+  Round <- clean_round(Round)
+  Team <- clean_team(Team)
+  Player <- clean_player(Player)
+})
+
+
+sgames$exchanges <- within(sgames$exchanges, {
+  League <- clean_league(League)
+  Season <- clean_season(Season)
+  Round <- clean_round(Round)
+  Team <- clean_team(Team)
+  PlayerOn <- clean_player(PlayerOn)
+  PlayerOff <- clean_player(PlayerOff)
+  # TODO: Minute
+})
+
+
+sgames$trainer <- within(sgames$trainer, {
+  League <- clean_league(League)
+  Season <- clean_season(Season)
+  Round <- clean_round(Round)
+  Team <- clean_team(Team)
+  Trainer <- clean_trainer(Trainer)
+})
 
 
 
 ### Save data: #######################################################
 
+BundesligaMatches <- sgames$match
+BundesligaLineups <- sgames$lineup
+BundesligaSubstitutes <- sgames$substitutes
+BundesligaExchanges <- sgames$exchanges
+BundesligaTrainer <- sgames$trainer
 
-
-
-
+save(BundesligaMatches, BundesligaLineups,
+     BundesligaSubstitutes, BundesligaExchanges,
+     BundesligaTrainer, file = "BundesligaLineups.RData")
