@@ -243,11 +243,15 @@ fetch_seasons <- function(seasons = sprintf("20%02d-%02d", 1:11, 2:12)) {
 }
 
 
-#trace(fetch_matchday_games, quote(cat(season, day, "\n")), at = 1)
-#sgames <- fetch_seasons()
-#untrace(fetch_matchday_games)
 
-#saveRDS(sgames, file = "sgames.Rds")
+if ( FALSE ) {
+  trace(fetch_matchday_games, quote(cat(season, day, "\n")), at = 1)
+  sgames <- fetch_seasons()
+  untrace(fetch_matchday_games)
+
+  saveRDS(sgames, file = "sgames.Rds")
+}
+
 sgames <- readRDS("sgames.Rds")
 
 
@@ -301,7 +305,25 @@ clean_postop <- function(x) {
   x[x < midline] <- (x[x < midline] + (75 / 2)) / midline
   x[x > midline] <- (1050 - (x[x > midline] + (75 / 2))) / midline
 
-  x
+
+  ## Correction of the differences between home and guest.
+  ## Check, e.g.,
+  ##   ggplot(BundesligaLineups, aes(PosX, PosY)) +
+  ##     geom_point() + facet_wrap(~ Season) +
+  ##     xlim(0, 1) + ylim(0, 1)
+  ## to see that there in fact eleven PosY values. Therefore,
+  ## we correct the data by using the mean value for each of
+  ## the eleven positions. Note that the goalkeeper is already
+  ## correct.
+  xval <- sort(unique(x))
+
+  xval_mat <- matrix(xval[-1], ncol = 2, byrow = TRUE)
+  xval_new <- c(xval[1], apply(xval_mat, 1, mean))
+  xval_mat <- rbind(c(0, xval[1]), xval_mat)
+
+  xintval <- sapply(x, function(y) which(apply(xval_mat, 1, function(z) y %in% z)))
+
+  xval_new[xintval]
 }
 
 
@@ -370,4 +392,4 @@ BundesligaTrainer <- sgames$trainer
 
 save(BundesligaMatches, BundesligaLineups,
      BundesligaSubstitutes, BundesligaExchanges,
-     BundesligaTrainer, file = "BundesligaLineups.RData")
+     BundesligaTrainer, file = "../../../data/BundesligaLineups.RData")
