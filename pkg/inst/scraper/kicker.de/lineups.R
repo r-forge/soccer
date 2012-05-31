@@ -299,7 +299,7 @@ clean_trainer <- function(x) {
 }
 
 clean_posleft <- function(x) {
-  ## Field width: 578
+  ## Field width: 578 (scaled to 510)
   ## Image width: 44
 
   (x + (44 / 2)) / 578

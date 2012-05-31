@@ -51,6 +51,7 @@ ab <- subset(BundesligaLineups, Season == "2002-2003" & Round == 7 &
 ggplot(ab, aes(PosX, PosY)) + geom_point() + xlim(0, 1) + ylim(0, 1)
 
 
+
 ######################################################################
 
 x <- subset(BundesligaLineups, Season == "2001-2002" & Round == 1 & PosTop == 879)
