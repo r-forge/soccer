@@ -278,7 +278,16 @@ clean_round <- function(x) {
 }
 
 clean_team <- function(x) {
-  factor(x)
+  y <- factor(x)
+
+  l <- levels(y)
+  l[agrep("1. FC Köln", l)] <- "1. FC Koeln"
+  l[agrep("1. FC Nürnberg", l)] <- "1. FC Nuernberg"
+  l[agrep("1860 München", l)] <- "1860 Muenchen"
+  l[agrep("Bayern München", l)] <- "Bayern Muenchen"
+  levels(y) <- l
+
+  y
 }
 
 clean_goals <- function(x) {
