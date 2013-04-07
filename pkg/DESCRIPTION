@@ -1,8 +1,8 @@
 Package: SportsAnalytics
 Type: Package
 Title: Infrastructure for Sports Analytics
-Version: 0.1-1
-Date: 2011-10-18
+Version: 0.2
+Date: 2013-04-07
 Depends:
     methods,
     stats
